@@ -1,46 +1,83 @@
-import { CompactTable } from "@table-library/react-table-library/compact";
-import { useTheme } from "@table-library/react-table-library/theme";
-import { getTheme } from "@table-library/react-table-library/baseline";
 import "./App.css";
+import { useState, useEffect } from "react";
 
-const nodes = [
-  {
-    id: '0',
-    name: 'Shopping List',
-    deadline: new Date(2020, 1, 15),
-    type: 'TASK',
-    isComplete: true,
-    nodes: 3,
-  },
-];
+const App = () => {
+	const [, setTradeSocket] = useState(null);
+	const [, setMarketSocket] = useState(null);
+	const [tradeMessages, setTradeMessages] = useState([]);
+	const [marketPrice, setMarketPrice] = useState(null);
 
-function App() {
+	useEffect(() => {
+		const tradeWS = new WebSocket(
+			"wss://testnet.binancefuture.com/ws/btcusdt@trade"
+		);
+		const marketWS = new WebSocket(
+			"wss://testnet.binancefuture.com/ws/btcusdt@markPrice"
+		);
+		setTradeSocket(tradeWS);
+		setMarketSocket(marketWS);
 
-	const data = { nodes };
+		tradeWS.onmessage = (event) => {
+			setTradeMessages((prevMessages) => [
+				...prevMessages,
+				JSON.parse(event.data),
+			]);
+		};
+		marketWS.onmessage = (event) => {
+			setMarketPrice(JSON.parse(event.data));
+		};
 
-	const theme = useTheme(getTheme());
+		return () => {
+			tradeWS.close();
+			marketWS.close();
+		};
+	}, [setTradeSocket, setMarketSocket, setTradeMessages]);
 
-	const COLUMNS = [
-		{ label: "Task", renderCell: (item) => item.name },
-		{
-			label: "Deadline",
-			renderCell: (item) =>
-				item.deadline.toLocaleDateString("en-US", {
-					year: "numeric",
-					month: "2-digit",
-					day: "2-digit",
-				}),
-		},
-		{ label: "Type", renderCell: (item) => item.type },
-		{
-			label: "Complete",
-			renderCell: (item) => item.isComplete.toString(),
-		},
-		{ label: "Tasks", renderCell: (item) => item.nodes?.length },
-	];
-
-	return <CompactTable columns={COLUMNS} data={data} theme={theme} />;
-}
+	return (
+		<section>
+			<h1>Bitcoin Infos (BTC/USDT)</h1>
+			<div className="market-prices">
+				<div>
+					<p>Bid</p>
+					<p>{marketPrice?.p}</p>
+				</div>
+				<div>
+					<p>Ask</p>
+					<p>{marketPrice?.i}</p>
+				</div>
+			</div>
+			<h2>Bitcoin Live Trades</h2>
+			<table>
+				<thead>
+					<tr>
+						<th>Trade Side</th>
+						<th>Trade Price</th>
+						<th>Trade Volume</th>
+						<th>Trade Time</th>
+					</tr>
+				</thead>
+				<tbody>
+					{tradeMessages?.map((item, index) => (
+						<tr key={`${item.E}${index}`} className={index % 2 === 0 && "light-backg"}>
+							<td>{item.X}</td>
+							<td>{item.p}</td>
+							<td>{item.q}</td>
+							<td>
+								{new Date(item.T).toLocaleString("en-GB", {
+									day: "2-digit",
+									month: "2-digit",
+									year: "numeric",
+									hour: "2-digit",
+									minute: "2-digit",
+									second: "2-digit",
+								})}
+							</td>
+						</tr>
+					))}
+				</tbody>
+			</table>
+		</section>
+	);
+};
 
 export default App;
-
